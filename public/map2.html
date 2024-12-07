@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта с синхронизацией через Firebase</title>
+    <style>
+        /* Карта */
+        #map-container {
+            width: 100%;
+            max-width: 1280px;
+            height: 720px;
+            background: url('https://i.imgur.com/HOG3fTI.jpeg') no-repeat center center;
+            background-size: cover;
+            position: relative;
+            border: 2px solid #000;
+            margin: 20px auto;
+        }
+
+        /* Иконки */
+        .character {
+            width: 70px;
+            height: 70px;
+            position: absolute;
+            cursor: grab;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Карта -->
+<div id="map-container">
+    <img src="https://i.imgur.com/WtIJG3O.png" class="character" id="character1">
+    <img src="https://i.imgur.com/I3aDyuO.png" class="character" id="character2">
+    <img src="https://i.imgur.com/gGVsx9v.png" class="character" id="character3">
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-analytics.js"></script>
+
+<script>
+// Ваши данные конфигурации Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyBc2pzFdv1PgVpoK2OTdLUw_e9iRCQ3NPU",
+  authDomain: "mystical-dungeon-2105a.firebaseapp.com",
+  databaseURL: "https://mystical-dungeon-2105a-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "mystical-dungeon-2105a",
+  storageBucket: "mystical-dungeon-2105a.appspot.com",
+  messagingSenderId: "428766163772",
+  appId: "1:428766163772:web:b598c59e21a082f2a7a439",
+  measurementId: "G-GKDNB00RRY"
+};
+
+// Инициализация Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const database = firebase.database(app);
+const analytics = firebase.getAnalytics(app);
+
+// Слушаем изменения данных в Firebase
+const positionsRef = database.ref('positions');
+positionsRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+        for (const id in data) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.top = data[id].top + 'px';
+                element.style.left = data[id].left + 'px';
+            }
+        }
+    }
+});
+
+// Обработка перетаскивания
+document.querySelectorAll('.character').forEach(character => {
+    character.addEventListener('mousedown', function(event) {
+        // Получаем начальную позицию мыши относительно элемента
+        let shiftX = event.clientX - character.getBoundingClientRect().left;
+        let shiftY = event.clientY - character.getBoundingClientRect().top;
+
+        console.log('shiftX: ', shiftX, 'shiftY: ', shiftY);  // Отладка смещения
+
+        // Функция для перемещения
+        function moveAt(pageX, pageY) {
+            const map = document.getElementById('map-container');
+            const mapRect = map.getBoundingClientRect();
+
+            let x = Math.min(Math.max(pageX - shiftX - mapRect.left, 0), map.offsetWidth - character.offsetWidth);
+            let y = Math.min(Math.max(pageY - shiftY - mapRect.top, 0), map.offsetHeight - character.offsetHeight);
+
+            console.log('moveAt x: ', x, 'y: ', y);  // Отладка новых координат
+
+            // Устанавливаем новые координаты для иконки
+            character.style.left = x + 'px';
+            character.style.top = y + 'px';
+
+            // Обновляем данные в Firebase
+            positionsRef.child(character.id).set({ top: y, left: x });
+        }
+
+        // При движении мыши обновляем положение
+        function onMouseMove(event) {
+            moveAt(event.pageX, event.pageY);
+        }
+
+        // Завершаем движение при отпускании кнопки мыши
+        function onMouseUp() {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        }
+
+        // Начинаем отслеживать движение мыши
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+
+    // Отменяем стандартное поведение drag-and-drop
+    character.ondragstart = function() {
+        return false;
+    };
+});
+</script>
+
+</body>
+</html>
